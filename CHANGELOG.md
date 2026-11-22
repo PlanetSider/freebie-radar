@@ -6,7 +6,7 @@
 
 - **`.github/workflows/docker.yml`（新增）**：推 `main`、打 `v*` 标签或手动触发时，构建 amd64 + arm64 双架构镜像并推送到 GHCR（`ghcr.io/<owner>/freebie-radar`），带 `type=gha` 层缓存与 `APP_COMMIT` / `APP_BUILD_TIME` 构建参数
 - **`docker-compose.yml`**：去掉 `build: .`，改为拉取 GHCR 镜像；仍读 `.env`，可用 `RADAR_IMAGE=ghcr.io/<owner>/freebie-radar:v1.0.0` 固定版本
-- **`docker-compose.selfhost.yml`（新增）**：不读 `.env`，环境变量全部内联并分组注释，适合直接改文件自建
+- **`docker-compose.selfhost.yml`（新增）**：不读 `.env`，只内联常改的 19 个变量，其余高级项以注释清单留档；FlareSolverr 随文件默认启动（`radar` 通过 `depends_on` 带起，不需要 `--profile cf`）
 - **`Dockerfile`**：runtime 段新增 `ARG APP_COMMIT` / `ARG APP_BUILD_TIME` 并落到 `ENV`，后台可显示镜像对应的提交与构建时间
 - **部署端不再本地编译**：升级命令统一为 `docker compose pull && docker compose up -d`，`hostUpdateCommand()` 同步；README / README.en.md / docs/deploy.md 已改
 - **`.env.example`**：补齐 `COOKIE_RUNNER_URL` / `XHS_PROXY_URL` / `GUEST_HIDDEN_CATEGORIES`，与自建版内联清单对齐

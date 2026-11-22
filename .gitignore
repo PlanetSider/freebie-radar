@@ -21,3 +21,6 @@ docs/fs-test.json
 shots/
 scripts/__pycache__/
 __pycache__/
+
+# 搜狗输入法在仓库根误建的 %SystemDrive% 目录，与本项目无关
+%SystemDrive%/
