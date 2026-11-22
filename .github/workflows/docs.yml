@@ -1,13 +1,15 @@
 name: Docs
 
+# 推 main 只跑 docker.yml；文档站改为手动发布。
+# 需要改回自动发布时，取消下面 push 段的注释即可。
 on:
-  push:
-    branches: [main]
-    paths:
-      - "docs/**"
-      - ".github/workflows/docs.yml"
-      - "package.json"
-      - "pnpm-lock.yaml"
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "docs/**"
+  #     - ".github/workflows/docs.yml"
+  #     - "package.json"
+  #     - "pnpm-lock.yaml"
   workflow_dispatch:
 
 permissions:

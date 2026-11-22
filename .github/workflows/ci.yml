@@ -1,10 +1,11 @@
 name: CI
 
+# 推 main 只跑 docker.yml（镜像构建）；质量校验放到 PR 和手动触发，
+# 避免每次推代码都同时抢 3 个 runner。
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   check:
