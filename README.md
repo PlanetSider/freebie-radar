@@ -100,24 +100,38 @@ flowchart LR
 
 ### 方式一：Docker Compose（推荐，1 分钟跑起来）
 
-不需要预先安装 Node.js 或手动建表，**甚至不复制 `.env` 也可以直接启动**：
+不需要预先安装 Node.js 或手动建表，**甚至不复制 `.env` 也可以直接启动**。
+镜像由 GitHub Actions 自动构建并推送到 GHCR，部署端只拉取、不编译。
+
+提供两份 compose，按需选一份：
+
+| 文件 | 适用场景 | 变量放哪 |
+|---|---|---|
+| `docker-compose.yml` | 保留 `.env` 工作流（原版） | `.env` |
+| `docker-compose.selfhost.yml` | 单人自建，不想维护 `.env` | 全部内联在 compose 里，带中文注释 |
 
 ```bash
-git clone https://github.com/ZiChuanLan/freebie-radar.git
+git clone https://github.com/PlanetSider/freebie-radar.git
 cd freebie-radar
 
-# 可选：复制并编辑环境变量（设置 ADMIN_TOKEN 管理密码、Telegram 推送、AI 等）
-cp .env.example .env
+# 方式 A：使用 .env
+cp .env.example .env        # 编辑 ADMIN_TOKEN / Telegram / AI 等
+docker compose up -d
 
-# 启动服务（默认监听 http://127.0.0.1:8788）
-docker compose up -d --build
+# 方式 B：完全不用 .env，直接改自建版 compose 里的变量
+docker compose -f docker-compose.selfhost.yml up -d
 ```
+
+> 镜像地址默认为 `ghcr.io/planetsider/freebie-radar:latest`。若拉取返回 `denied`，
+> 到仓库的 Packages 页面把该包设为 **Public**，或先 `docker login ghcr.io`。
+> 想固定版本可加环境变量：`RADAR_IMAGE=ghcr.io/planetsider/freebie-radar:v1.0.0`。
 
 > **需要采集带 Cloudflare 护盾的站点（如 LINUX DO）？**
 > 仓库已内置可选 `cf` profile，一条命令同时拉起 FlareSolverr：
 > ```bash
-> # 在 .env 中设置 FLARESOLVERR_URL=http://flaresolverr:8191
-> docker compose --profile cf up -d --build
+> # 原版则在 .env 中设置 FLARESOLVERR_URL=http://flaresolverr:8191
+> # 自建版则改 docker-compose.selfhost.yml 里的同名变量
+> docker compose --profile cf up -d
 > ```
 
 验证健康状态与日志：
@@ -129,7 +143,7 @@ curl http://127.0.0.1:8788/health
 docker compose logs -f --tail 50
 ```
 
-数据库保存在 `./data/radar.db`，升级只需 `git pull && docker compose up -d --build`，自动完成数据库迁移，数据零丢失。
+数据库保存在 `./data/radar.db`，升级只需 `docker compose pull && docker compose up -d`，镜像更新后自动完成数据库迁移，数据零丢失。
 
 ### 方式二：源码运行（Node.js ≥ 22.5 + pnpm 10）
 

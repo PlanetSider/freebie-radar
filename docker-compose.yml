@@ -1,7 +1,10 @@
 services:
   radar:
-    build: .
-    image: freebie-radar:latest
+    # 镜像由 GitHub Actions（.github/workflows/docker.yml）构建并推送到 GHCR。
+    # 这里不再本地 build；拉取失败时先 docker pull 或 docker login ghcr.io。
+    # 想换镜像（私有仓库 / 指定版本）可用：
+    #   RADAR_IMAGE=ghcr.io/你的用户名/freebie-radar:v1.0.0 docker compose up -d
+    image: ${RADAR_IMAGE:-ghcr.io/planetsider/freebie-radar:latest}
     restart: unless-stopped
     mem_limit: 256m
     ports:
@@ -32,8 +35,8 @@ services:
       retries: 3
       start_period: 10s
 
-  # 可选：采集 linux.do 等带 Cloudflare 护盾的站点时可一起启动：
-  # docker compose --profile cf up -d --build
+  # 可选：采集 linux.do 等带 Cloudflare 护盾的站点时一起启动：
+  # docker compose --profile cf up -d
   # 并在 .env 设置 FLARESOLVERR_URL=http://flaresolverr:8191
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest

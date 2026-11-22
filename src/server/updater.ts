@@ -409,11 +409,12 @@ function scheduleRestart(job: UpdateJob): void {
   }, 1200).unref?.();
 }
 
-/** 宿主机升级命令（docker-readonly 环境下给前端一键复制） */
+/** 宿主机升级命令（docker-readonly 环境下给前端一键复制；镜像由 GHCR 提供，不本地构建） */
 export function hostUpdateCommand(): string {
   return [
     `cd /opt/freebie-radar`,
     `git pull --ff-only`,
-    `docker compose up -d --build`,
+    `docker compose pull`,
+    `docker compose up -d`,
   ].join(" && ");
 }

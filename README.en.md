@@ -83,21 +83,27 @@ Instead of forcing every feed into a single freebie-only filter or dumping raw R
 Works out of the box **even without copying `.env` first**:
 
 ```bash
-git clone https://github.com/ZiChuanLan/freebie-radar.git
+git clone https://github.com/PlanetSider/freebie-radar.git
 cd freebie-radar
 
-# Optional: customize ADMIN_TOKEN, Telegram bot, proxy, AI, etc.
+# Option A (stock): keep variables in .env
+#   Optional: customize ADMIN_TOKEN, Telegram bot, proxy, AI, etc.
 cp .env.example .env
 
+# Option B (self-host): no .env, every variable is inlined in the compose file
+#   docker compose -f docker-compose.selfhost.yml up -d
+
+# Images are built by GitHub Actions and published to GHCR; nothing is compiled locally.
 # Start on http://127.0.0.1:8788
-docker compose up -d --build
+docker compose up -d
 ```
 
 To also spin up **FlareSolverr** for Cloudflare-protected sources:
 
 ```bash
-# Set FLARESOLVERR_URL=http://flaresolverr:8191 in .env
-docker compose --profile cf up -d --build
+# stock: set FLARESOLVERR_URL=http://flaresolverr:8191 in .env
+# self-host: edit the same variable in docker-compose.selfhost.yml
+docker compose --profile cf up -d
 ```
 
 Verify health & logs:
@@ -107,7 +113,7 @@ curl http://127.0.0.1:8788/health
 docker compose logs -f --tail 50
 ```
 
-Data persists in `./data/radar.db`. Upgrades (`git pull && docker compose up -d --build`) run SQLite migrations automatically.
+Data persists in `./data/radar.db`. Upgrades (`docker compose pull && docker compose up -d`) run SQLite migrations automatically; pin a version with `RADAR_IMAGE=ghcr.io/planetsider/freebie-radar:v1.0.0`.
 
 ### From Source (Node.js ≥ 22.5 + pnpm 10)
 

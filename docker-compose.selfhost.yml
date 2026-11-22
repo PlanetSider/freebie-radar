@@ -1,0 +1,180 @@
+# ============================================================
+# 自建版 docker-compose（单人 / 家庭服务器）
+#
+#   docker compose -f docker-compose.selfhost.yml up -d
+#
+# 特点：
+#   - 不需要 .env 文件，所有变量都写在下面，改完直接 up -d 生效
+#   - 镜像由 GitHub Actions 构建并推送到 GHCR，不在本地 build
+#   - 想改端口/绑定地址，只改 ports 一行
+#
+# 与 docker-compose.yml 的区别：那份保留 .env 工作流，这份把变量内联。
+# 二者互斥使用，不要同时 up。
+# ============================================================
+services:
+  radar:
+    # 镜像地址与 GitHub 仓库一一对应（小写）。首次推送后去
+    # https://github.com/users/你的用户名/packages 把该包设为 Public，
+    # 否则匿名 pull 会失败；私有镜像先 docker login ghcr.io -u 你的用户名。
+    image: ghcr.io/planetsider/freebie-radar:latest
+    restart: unless-stopped
+    mem_limit: 256m
+    # 默认只绑回环，交给 Nginx/Caddy 反代并上 HTTPS。
+    # 直接用 IP:端口 访问就改成 "0.0.0.0:8788:8788"（不推荐公网裸奔）。
+    ports:
+      - "127.0.0.1:8788:8788"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      # ---------------- 基础（一般不用改） ----------------
+      # 容器内固定监听 8788，改了要和上面 ports 右侧保持一致
+      PORT: "8788"
+      HOST: "0.0.0.0"
+      # 必须是 /data 下的路径，否则数据不会写进挂载卷，重建容器即丢
+      DATABASE_PATH: /data/radar.db
+      # 影响 cron 触发时刻与日报日期归属
+      TZ: "Asia/Shanghai"
+
+      # ---------------- 安全与管理鉴权 ----------------
+      # 管理区密码。留空时：selfhost 模式管理区开放、public 模式锁定。
+      # 公网部署必须填长随机串（可用 openssl rand -base64 24 生成）。
+      ADMIN_TOKEN: ""
+      # 管理 API 限定域名（逗号分隔，可带端口）；留空兼容单域名部署
+      ADMIN_HOSTS: ""
+      # 只在源站端口已封口、反代会覆盖 X-Forwarded-For 后才开
+      TRUST_PROXY: "false"
+      RATE_LIMIT_ENABLED: "true"
+      # 仅 selfhost 且显式开启时允许内网 Webhook；public 站始终拒绝
+      WEBHOOK_ALLOW_PRIVATE: "false"
+
+      # ---------------- 网络与代理 ----------------
+      # 国内本机/海外 VPS 都留空；需要翻墙采集才填，如 http://127.0.0.1:7890
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      FETCH_TIMEOUT_MS: "20000"
+      MIN_REQUEST_GAP_MS: "2000"
+      # 源与源之间的间隔，太小容易被 Reddit 一类站点按 IP 限流
+      SOURCE_GAP_MS: "3000"
+
+      # ---------------- Cloudflare 绕过（可选） ----------------
+      # 要启用就先加 --profile cf，并把这里改成 http://flaresolverr:8191
+      FLARESOLVERR_URL: ""
+      FLARESOLVERR_TIMEOUT_MS: "60000"
+
+      # ---------------- 采集控制 ----------------
+      # 逗号分隔只跑指定源；留空 = 按网页「数据源运维」里的启停配置跑。
+      # 注意这是「叠加过滤」：填了之后网页里启用的源也会被它再筛一遍。
+      ENABLED_SOURCES: ""
+      MAX_ITEMS_PER_RUN: "50"
+      # GitHub API Token，把限额从 60/h 提到 5000/h（可选）
+      GITHUB_TOKEN: ""
+
+      # ---------------- 定时调度 ----------------
+      ENABLE_SCHEDULER: "true"
+      # 每 2 小时采集一轮
+      COLLECT_CRON: "0 */2 * * *"
+      # 每天 08:30 生成日报
+      DAILY_CRON: "30 8 * * *"
+      # 日报条数（网页上的「生成日报」不接受参数，只能在这里改）
+      DAILY_TOP_N: "12"
+      # 对外访问地址，OAuth 回调与 RSS 绝对链接依赖它，如 https://radar.example.com
+      PUBLIC_BASE_URL: ""
+
+      # ---------------- 全局 Telegram 推送（可选） ----------------
+      # none = 只网页查看；telegram = 开启全局 Bot 即时/攒批/日报。
+      # 置 none 时下面四项留空即可，个人 Bot 推送仍可独立工作。
+      PUSH_CHANNEL: "none"
+      TELEGRAM_BOT_TOKEN: ""
+      TELEGRAM_CHAT_ID: ""
+      TELEGRAM_API_BASE: "https://api.telegram.org"
+      TELEGRAM_PROXY: ""
+
+      # ---------------- AI 语义审核（可选） ----------------
+      # 这里只是「首次启动的默认值」，之后在网页「AI 引擎」里热改即可；
+      # 只要在网页保存过一次，这几项就永久失效，可留空。
+      AI_BASE_URL: ""
+      AI_API_KEY: ""
+      AI_MODEL: ""
+      AI_MAX_ITEMS: "60"
+
+      # ---------------- 登录态站点回传（可选） ----------------
+      # 配合 scripts/pw-collect.mjs 抓知乎/小红书/小黑盒；留空则 /api/ingest 拒绝外部写入
+      INGEST_TOKEN: ""
+      COOKIE_RUNNER_URL: "http://172.17.0.1:18790"
+      XHS_PROXY_URL: ""
+
+      # ---------------- 站点形态与 OAuth（要多人登录才配） ----------------
+      # auto   = 配齐任一 OAuth 凭据就按公开站跑
+      # selfhost = 强制单人自建（全局收藏/屏蔽，行为与旧版一致）
+      # public = 公开站，个人状态按登录用户隔离
+      SITE_MODE: "auto"
+      LINUXDO_CLIENT_ID: ""
+      LINUXDO_CLIENT_SECRET: ""
+      # 留空按 PUBLIC_BASE_URL 或请求 Host 推导
+      LINUXDO_REDIRECT_URI: ""
+      LINUXDO_MIN_TRUST_LEVEL: "0"
+      # 仅 OAuth 用的代理，不影响采集
+      LINUXDO_PROXY: ""
+      GITHUB_CLIENT_ID: ""
+      GITHUB_CLIENT_SECRET: ""
+      GITHUB_REDIRECT_URI: ""
+      GITHUB_PROXY: ""
+
+      # ---------------- 密钥 ----------------
+      # 签名与个人 Bot Token 加密用。留空会首次启动自动生成并写进数据库，
+      # 但那样「拿到 db 就拿到密钥」，公网部署建议显式填写长随机串。
+      SESSION_SECRET: ""
+      TOKEN_ENCRYPTION_KEY: ""
+
+      # ---------------- 其他 ----------------
+      # 本地模拟登录开关。注意容器里 NODE_ENV 固定为 production，
+      # 该开关在容器内不生效，仅本地直接跑源码时可用。
+      AUTH_DEV_MOCK: "false"
+      # 个人推送护栏：单个用户每小时 / 每轮即时条数上限，网页里只能调低
+      USER_PUSH_MAX_PER_HOUR: "40"
+      USER_PUSH_MAX_PER_INSTANT: "5"
+      # 未登录访客看不到的分类，逗号分隔；设为空字符串 "" 表示全开
+      GUEST_HIDDEN_CATEGORIES: "pan,course"
+
+      # ---------------- 自更新与版本展示（可选） ----------------
+      # 容器内自更新不可用（没有 git/pnpm 源码树），这几项保持默认即可
+      SELF_UPDATE_REMOTE: "origin"
+      SELF_UPDATE_BRANCH: "main"
+      SELF_UPDATE_RESTART_CMD: ""
+      UPDATE_WEBHOOK_URL: ""
+      UPDATE_WEBHOOK_TOKEN: ""
+      APP_COMMIT: ""
+      APP_BUILD_TIME: ""
+      APP_REPO: "ZiChuanLan/freebie-radar"
+    volumes:
+      - ./data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # 可选：采集 linux.do 等带 Cloudflare 护盾的站点时一起启动：
+  #   docker compose -f docker-compose.selfhost.yml --profile cf up -d
+  # 并把上面的 FLARESOLVERR_URL 改成 http://flaresolverr:8191
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    profiles: ["cf"]
+    restart: unless-stopped
+    mem_limit: 400m
+    environment:
+      LOG_LEVEL: info
+      TZ: "Asia/Shanghai"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

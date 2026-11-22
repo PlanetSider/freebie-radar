@@ -13,6 +13,11 @@ FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NODE_OPTIONS="--max-old-space-size=192"
+# 由 .github/workflows/docker.yml 注入，供后台显示当前运行版本
+ARG APP_COMMIT=""
+ARG APP_BUILD_TIME=""
+ENV APP_COMMIT=${APP_COMMIT} \
+    APP_BUILD_TIME=${APP_BUILD_TIME}
 # curl + ca-certificates：部分源的 Cloudflare 对 Node undici TLS 指纹返回 403，
 # RSS/直连采集通过 curl 拿 200，可显著减少对 FlareSolverr 的依赖。
 RUN apk add --no-cache curl ca-certificates

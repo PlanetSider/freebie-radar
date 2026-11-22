@@ -7,14 +7,18 @@
 本项目使用 `node:24-alpine` 单容器运行（成品镜像 ~340 MB），内置 Node.js 原生 `node:sqlite`（WAL 模式），无需外接 PostgreSQL / Redis，且设置了 V8 堆与 SQLite 缓存限制，主服务容器实测常驻内存约 **80–100 MiB**。
 
 ```bash
-git clone https://github.com/ZiChuanLan/freebie-radar.git
+git clone https://github.com/PlanetSider/freebie-radar.git
 cd freebie-radar
 
+# 方式 A（原版）：使用 .env
 # 可选：复制并编辑环境变量（配置 ADMIN_TOKEN / Telegram 推送 / 代理等）
 cp .env.example .env
 
 # 启动主服务（会自动建表；不设 ADMIN_TOKEN 时生产管理区锁定）
-docker compose up -d --build
+docker compose up -d
+
+# 方式 B（自建版）：不用 .env，变量全部内联在 compose 里
+# docker compose -f docker-compose.selfhost.yml up -d
 ```
 
 验证健康检查：
@@ -28,8 +32,9 @@ curl http://127.0.0.1:8788/health
 大多数数据源（包括 `linux.do` RSS、OpenRouter、Epic、Steam、GamerPower、NodeSeek RSS 等）均可由容器内 `curl` / `fetch` 直连。如果你开启了需要复杂 Cloudflare 挑战的站点，可启用内置的 `cf` profile：
 
 ```bash
-# 在 .env 中添加：FLARESOLVERR_URL=http://flaresolverr:8191
-docker compose --profile cf up -d --build
+# 原版：在 .env 中添加 FLARESOLVERR_URL=http://flaresolverr:8191
+# 自建版：改 docker-compose.selfhost.yml 里的同名变量
+docker compose --profile cf up -d
 ```
 
 > 服务已内置会话空闲 **90 秒** 自动销毁释放浏览器内存的机制，避免空闲时长期占用数百 MB RAM。
@@ -62,9 +67,9 @@ docker compose exec radar node --no-warnings src/server/cli.ts ai-review 100 pen
 # 重新生成今日精选（--dry-run 只预览不写入/推送）
 docker compose exec radar node --no-warnings src/server/cli.ts daily --dry-run
 
-# 升级到最新版本（数据保存在 ./data/radar.db 不会丢失）
-git pull origin main
-docker compose up -d --build
+# 升级到最新版本（只拉新镜像，数据保存在 ./data/radar.db 不会丢失）
+docker compose pull
+docker compose up -d
 ```
 
 ## 登录态站点接入（知乎 / 小红书 / 小黑盒）
